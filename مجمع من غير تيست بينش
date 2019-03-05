@@ -1,0 +1,294 @@
+module CLOCK(CLK);
+output reg CLK ;
+
+
+
+
+initial begin  
+CLK = 0 ;
+
+end
+always begin 
+#1
+CLK = ~CLK ;
+end
+
+
+
+endmodule 
+
+module ROM(TIME,TCOUNT,PCOUNT);
+input[1:0] TCOUNT ;input[2:0] PCOUNT ; 
+output reg[4:0] TIME ;
+
+reg[4:0] INDEX ;
+reg[4:0] TABLE[0:32];
+initial begin 
+INDEX[4:3]=TCOUNT;
+INDEX[2:0] =PCOUNT;
+TIME = TABLE[INDEX];
+ end
+initial begin
+TABLE[0]=0;
+TABLE[1]=0;
+TABLE[2]=0;
+TABLE[3]=0;
+TABLE[4]=0;
+TABLE[5]=0;
+TABLE[6]=0;
+TABLE[7]=0;
+TABLE[8]=0;
+TABLE[9]=3;
+TABLE[10]=6;
+TABLE[11]=9;
+TABLE[12]=12;
+TABLE[13]=15;
+TABLE[14]=18;
+TABLE[15]=21;
+TABLE[16]=0;
+TABLE[17]=3;
+TABLE[18]=4;
+TABLE[19]=6;
+TABLE[20]=7;
+TABLE[21]=9;
+TABLE[22]=10;
+TABLE[23]=12;
+TABLE[24]=0;
+TABLE[25]=3;
+TABLE[26]=4;
+TABLE[27]=5;
+TABLE[28]=6;
+TABLE[29]=7;
+TABLE[30]=8;
+TABLE[31]=9;
+
+end
+
+always@(PCOUNT,TCOUNT)begin
+
+{INDEX[4],INDEX[3]} =TCOUNT;
+{INDEX[2],INDEX[1],INDEX[0]} =PCOUNT;
+TIME <= TABLE[INDEX];
+end
+
+
+
+
+
+endmodule 
+
+
+/**
+CO = Counter Output
+EF <= empty flag 
+FF <= Full flag 
+UP signal 
+Down signal
+CLK system Clock 
+MR master rest 
+initial value for the counter is 0 :"D
+EF and FF is ative High 
+Ative High Master rest 
+**/
+module counter(CO,EF,FF,UP,DOWN,CLK,MR);
+input UP,DOWN,CLK,MR ;
+
+parameter H=3'b000,G=3'b001,F=3'b010,E=3'b011,D=3'b100,C=3'b101,B=3'b110,A=3'b111 ;
+reg[3:0] CS ;reg[3:0] NS ;
+output reg[2:0] CO ;
+output reg EF,FF ;
+
+initial
+begin 
+CS = H ;
+CO = 0;
+EF = 1 ;
+FF = 0 ;
+end
+
+
+
+
+always@(UP,DOWN)
+begin 
+
+
+
+case(CS)
+A:if(UP)begin NS = A ;end
+else if(DOWN)begin NS = B ; end
+
+B: if(UP)begin NS = A ;end
+else if(DOWN)begin NS = C ; end
+
+C: if(UP)begin NS = B ;end
+else if(DOWN)begin NS <= D ; end
+
+D: if(UP)begin NS = C ;end
+else if(DOWN)begin NS = E ; end
+
+E: if(UP)begin NS = D ;end
+else if(DOWN)begin NS <= F ; end
+
+F: if(UP)begin NS = E ;end
+else if(DOWN)begin NS = G ; end
+
+G: if(UP)begin NS = F ;end
+else if(DOWN)begin NS = H ; end
+
+H: if(UP)begin NS = G ;end
+else if(DOWN)begin NS = H ; end
+
+
+ 
+endcase 
+
+end
+
+
+
+always@(posedge CLK)
+begin
+if (MR==0)begin CS <= NS ; 
+
+ end
+else begin  CS =H ;
+EF = 1 ; FF = 0 ;
+
+ end
+
+
+case(CS)
+A:begin
+ CO = 7 ;
+  end// 7 
+
+B:begin  CO = 6 ;
+ end//6
+
+C: begin  CO = 5 ;
+ end //5
+
+D: begin  CO = 4 ;
+end //4
+
+E:begin  CO = 3 ;
+end//3
+
+F:begin  CO = 2 ;
+  end//2
+G:begin CO = 1 ; end //1
+H: begin  CO = 0 ;
+ end
+ 
+endcase 
+
+if(CO == 0)begin EF = 1 ; end
+	else begin EF = 0 ; end
+	if(CO == 7)begin FF = 1 ; end
+	else begin FF = 0 ; end
+end
+
+
+
+
+
+endmodule 
+
+module SENSOR  (output reg  Z, input X,input CLK,input MR );
+
+parameter A=1'b0 , B=1'b1 ;
+reg CS ,NS ; 
+
+initial begin 
+
+CS = A ;
+Z = 0 ;
+end 
+
+always@(X,CS)begin
+case(CS)
+A:if(X==0)begin NS=B ;end
+else begin NS=A ;end
+B:if(X==0)begin NS=B ;end
+else begin NS=A ;end
+endcase
+end
+
+always@(posedge CLK)begin
+if(MR)begin
+CS=A; Z=1 ;end
+else begin CS<=NS ; end 
+
+
+end
+
+always@(CS)begin
+if(CS==A)Z =0; 
+else if  (CS==B) Z=1 ;
+
+end
+endmodule 
+
+
+
+module statemachine  (output reg  z, input x,input reset,input clk);
+reg currentstate ,nextstate ;
+parameter a=1'b1,b=1'b0;
+
+
+
+always  @(x or currentstate)
+begin
+// currentstate=a;
+
+z= currentstate | x ; 
+case (currentstate)
+
+a: if(x==0)begin nextstate =b  ; end
+else begin nextstate =a ; end
+
+b: if(x==0)begin nextstate =b  ; end
+else begin nextstate = a ; end
+endcase
+end 
+
+always @(posedge clk )
+begin
+if (reset ==0)  //where reset is active low 
+begin nextstate <=a ;	end
+else begin currentstate <= nextstate ;	end
+
+end
+endmodule
+ 
+module tb ();
+
+reg X,R,Clk;
+wire   Z ;
+
+statemachine SM(Z,X,R,Clk);
+
+initial 
+begin
+$monitor ("%b %b %b %b",X,R,Clk,Z);
+X=1;
+R=1;
+Clk=1;
+#5
+X=0;
+R=1;
+Clk=1;
+
+#5
+X=1;
+R=0;
+Clk=1;
+
+#5
+X=1;
+R=0;
+Clk=0;
+
+end
+endmodule
